@@ -1,26 +1,12 @@
 "use client";
-import { useEffect, useState } from 'react'
-
-
-interface Post {
-  id: string;
-  title: string;
-  content: string;
-  author: User;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  posts: Post[];
-}
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 export default function Home() {
-  // O tenant é definido pelo middleware baseado no subdomínio
-  // Usamos o hostname para exibir qual tenant está sendo usado
+  const router = useRouter();
   const [tenant, setTenant] = useState("default");
-  const [databaseName, setDatabaseName] = useState("default_db");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   
   // Detecta o tenant do hostname quando o componente montar
   useEffect(() => {
@@ -32,67 +18,71 @@ export default function Home() {
     if (parts.length > 1) {
       const subdomain = parts[0]; // cliente1_db
       setTenant(subdomain);
-      setDatabaseName(subdomain); // Já contém o sufixo _db
     }
+
+    // Verifica se o usuário está autenticado
+    const storedUser = localStorage.getItem('user');
+    setIsAuthenticated(!!storedUser);
   }, []);
-  const [users, setUsers] = useState<User[]>([])
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
-  
-  useEffect(() => {
-    async function fetchData() {
-      try {
-        setLoading(true);
-        const [usersRes, postsRes] = await Promise.all([
-          fetch('/api/users', { headers: { 'x-tenant': tenant } }),
-          fetch('/api/posts', { headers: { 'x-tenant': tenant } })
-        ])
-
-        const usersData = await usersRes.json()
-        const postsData = await postsRes.json()
-
-        setUsers(Array.isArray(usersData) ? usersData : [])
-        setPosts(Array.isArray(postsData) ? postsData : [])
-      } catch (error) {
-        console.error('Error fetching data:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-    
-    fetchData()
-  }, [tenant])
-  
-  if (loading) return <div>Carregando...</div>
   
   return (
-    <div style={{ padding: '20px' }}>
-      <h1>Cliente: {tenant}</h1>
-      <h2>Banco de dados: {databaseName}</h2>
-      
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-        <div>
-          <h2>Usuários</h2>
-          {Array.isArray(users) && users.map(user => (
-            <div key={user.id} style={{ border: '1px solid #ccc', padding: '10px', margin: '10px 0' }}>
-              <h3>{user.name}</h3>
-              <p>{user.email}</p>
-              <small>Posts: {user.posts.length}</small>
-            </div>
-          ))}
-        </div>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      minHeight: '100vh',
+      padding: '20px',
+      backgroundColor: '#f5f5f5'
+    }}>
+      <div style={{ 
+        maxWidth: '600px', 
+        width: '100%', 
+        padding: '40px', 
+        boxShadow: '0 4px 6px rgba(0,0,0,0.1)', 
+        borderRadius: '8px',
+        backgroundColor: 'white',
+        textAlign: 'center'
+      }}>
+        <h1 style={{ marginBottom: '20px' }}>Sistema Multitenant</h1>
+        <h2 style={{ marginBottom: '30px', color: '#666' }}>Cliente: {tenant}</h2>
         
-        <div>
-          <h2>Posts</h2>
-          {Array.isArray(posts) && posts.map(post => (
-            <div key={post.id} style={{ border: '1px solid #ccc', padding: '10px', margin: '10px 0' }}>
-              <h3>{post.title}</h3>
-              <p>{post.content}</p>
-              <small>Por: {post.author.name}</small>
-            </div>
-          ))}
+        <p style={{ marginBottom: '30px', fontSize: '18px' }}>
+          Bem-vindo ao sistema de demonstração multitenant. Para acessar os posts e usuários, faça login com seu e-mail.
+        </p>
+        
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px' }}>
+          {isAuthenticated ? (
+            <Link href="/dashboard">
+              <button style={{ 
+                padding: '12px 24px', 
+                backgroundColor: '#4caf50', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}>
+                Ir para o Dashboard
+              </button>
+            </Link>
+          ) : (
+            <Link href="/login">
+              <button style={{ 
+                padding: '12px 24px', 
+                backgroundColor: '#1976d2', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}>
+                Fazer Login
+              </button>
+            </Link>
+          )}
         </div>
       </div>
     </div>
-  )
+  );
 }
