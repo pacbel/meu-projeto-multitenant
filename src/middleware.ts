@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export function middleware(request: NextRequest): NextResponse {
-    console.log('MIDDLEWARE ATIVADO!');
     
     const hostname = request.headers.get('host') || '';
     let subdomain = hostname.split('.')[0];
@@ -29,14 +28,6 @@ export function middleware(request: NextRequest): NextResponse {
     // Adiciona o tenant nos headers
     const requestHeaders = new Headers(request.headers);
     requestHeaders.set('x-tenant', subdomain);
-    
-    console.log('--- MIDDLEWARE LOG ---');
-    console.log('Hostname:', hostname);
-    console.log('Subdomínio detectado:', subdomain);
-    console.log('Tenant resolvido:', subdomain);
-    console.log('Headers finais:', Array.from(requestHeaders.entries()));
-    console.log('----------------------');
-    
     return NextResponse.next({
         request: {
             headers: requestHeaders,

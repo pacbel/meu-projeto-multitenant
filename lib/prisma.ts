@@ -8,10 +8,7 @@ export function getPrismaClient(tenant: string): PrismaClient {
     console.error('Tenant não fornecido para getPrismaClient');
     tenant = 'default';
   }
-  
-  // Log para diagnóstico
-  console.log(`Conectando ao banco de dados para tenant: ${tenant}`);
-  
+
   if (!prismaInstances.has(tenant)) {
     // Se o tenant já termina com _db, não adiciona novamente
     const dbName = tenant.endsWith('_db') ? tenant : `${tenant}_db`;
