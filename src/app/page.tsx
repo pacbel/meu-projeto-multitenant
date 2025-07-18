@@ -17,7 +17,24 @@ interface User {
 }
 
 export default function Home() {
-  const tenant = "default"; // TODO: Substitua pela lógica correta para obter o tenant, se necessário.
+  // O tenant é definido pelo middleware baseado no subdomínio
+  // Usamos o hostname para exibir qual tenant está sendo usado
+  const [tenant, setTenant] = useState("default");
+  const [databaseName, setDatabaseName] = useState("default_db");
+  
+  // Detecta o tenant do hostname quando o componente montar
+  useEffect(() => {
+    // Pega o hostname completo: cliente1_db.localhost:3000
+    const hostname = window.location.hostname;
+    const parts = hostname.split('.');
+    
+    // Se tem subdomínio (cliente1_db.localhost)
+    if (parts.length > 1) {
+      const subdomain = parts[0]; // cliente1_db
+      setTenant(subdomain);
+      setDatabaseName(subdomain); // Já contém o sufixo _db
+    }
+  }, []);
   const [users, setUsers] = useState<User[]>([])
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,6 +42,7 @@ export default function Home() {
   useEffect(() => {
     async function fetchData() {
       try {
+        setLoading(true);
         const [usersRes, postsRes] = await Promise.all([
           fetch('/api/users', { headers: { 'x-tenant': tenant } }),
           fetch('/api/posts', { headers: { 'x-tenant': tenant } })
@@ -43,13 +61,14 @@ export default function Home() {
     }
     
     fetchData()
-  }, [])
+  }, [tenant])
   
   if (loading) return <div>Carregando...</div>
   
   return (
     <div style={{ padding: '20px' }}>
       <h1>Cliente: {tenant}</h1>
+      <h2>Banco de dados: {databaseName}</h2>
       
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
         <div>
