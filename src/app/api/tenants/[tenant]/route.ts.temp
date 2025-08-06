@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { TenantService } from '@/lib/tenantService';
+
+// Configuração de runtime para o Next.js
+export const runtime = 'edge';
+
+// Endpoint para verificar se um tenant específico está permitido
+export async function GET(
+  request: NextRequest,
+  context: { params: { tenant: string } }
+) {
+  try {
+    const tenant = context.params.tenant;
+    const isAllowed = await TenantService.isTenantAllowed(tenant);
+
+    return NextResponse.json({ tenant, isAllowed }, { status: 200 });
+  } catch (error) {
+    console.error('Erro ao verificar tenant:', error);
+    return NextResponse.json(
+      { error: 'Erro ao verificar tenant' },
+      { status: 500 }
+    );
+  }
+}
+
+// Endpoint para remover um tenant específico
+export async function DELETE(
+  request: NextRequest,
+  context: { params: { tenant: string } }
+) {
+  try {
+    const tenant = context.params.tenant;
+
+    // Não permitir remover o tenant default
+    if (tenant === 'default') {
+      return NextResponse.json(
+        { error: 'Não é permitido remover o tenant default' },
+        { status: 400 }
+      );
+    }
+
+    const success = await TenantService.removeTenant(tenant);
+
+    if (success) {
+      return NextResponse.json(
+        { message: `Tenant ${tenant} removido com sucesso` },
+        { status: 200 }
+      );
+    } else {
+      return NextResponse.json(
+        { error: 'Erro ao remover tenant' },
+        { status: 500 }
+      );
+    }
+  } catch (error) {
+    console.error('Erro ao processar requisição:', error);
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    );
+  }
+}

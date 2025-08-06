@@ -1,0 +1,66 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { TenantService } from '@/lib/tenantService';
+
+// Definição do tipo para os parâmetros da rota
+interface RouteParams {
+  params: {
+    tenant: string;
+  };
+}
+
+// Endpoint para remover um tenant específico
+export async function DELETE(
+  request: NextRequest,
+  { params }: RouteParams
+) {
+  try {
+    const { tenant } = params;
+
+    // Não permitir remover o tenant default
+    if (tenant === 'default') {
+      return NextResponse.json(
+        { error: 'Não é permitido remover o tenant default' },
+        { status: 400 }
+      );
+    }
+
+    const success = await TenantService.removeTenant(tenant);
+
+    if (success) {
+      return NextResponse.json(
+        { message: `Tenant ${tenant} removido com sucesso` },
+        { status: 200 }
+      );
+    } else {
+      return NextResponse.json(
+        { error: 'Erro ao remover tenant' },
+        { status: 500 }
+      );
+    }
+  } catch (error) {
+    console.error('Erro ao processar requisição:', error);
+    return NextResponse.json(
+      { error: 'Erro interno do servidor' },
+      { status: 500 }
+    );
+  }
+}
+
+// Endpoint para verificar se um tenant específico está permitido
+export async function GET(
+  request: NextRequest,
+  { params }: RouteParams
+) {
+  try {
+    const { tenant } = params;
+    const isAllowed = await TenantService.isTenantAllowed(tenant);
+
+    return NextResponse.json({ tenant, isAllowed }, { status: 200 });
+  } catch (error) {
+    console.error('Erro ao verificar tenant:', error);
+    return NextResponse.json(
+      { error: 'Erro ao verificar tenant' },
+      { status: 500 }
+    );
+  }
+}

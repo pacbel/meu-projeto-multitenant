@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",
+    "@upstash/redis": "^1.35.3",
     "dotenv": "^17.2.0",
+    "ioredis": "^5.7.0",
     "mysql2": "^3.14.2",
     "next": "15.4.1",
     "react": "19.1.0",

@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { TenantService } from './lib/tenantService'
 
-export function middleware(request: NextRequest): NextResponse {
+// Configuração para o middleware
+export const config = {
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+}
+
+export async function middleware(request: NextRequest): Promise<NextResponse> {
     
+    //Importa tipos específicos do Next.js
+    //NextRequest: tipo do objeto request (com tipagem)
+    //NextResponse: tipo do objeto response (com tipagem)
+    //A função recebe um request tipado e retorna um NextResponse
+
+    //Obtem o hostname da requisição
     const hostname = request.headers.get('host') || '';
     let subdomain = hostname.split('.')[0];
 
@@ -18,9 +30,10 @@ export function middleware(request: NextRequest): NextResponse {
         }
     }
 
-    // Lista de subdomínios permitidos (validação de segurança)
-    const allowedTenants: string[] = ['cliente1_db', 'cliente2_db', 'cliente3_db', 'default'];
+    // Busca a lista de tenants permitidos do Redis com cache local
+    const allowedTenants = await TenantService.getAllowedTenants();
 
+    // Verifica se o tenant está na lista de permitidos
     if (!allowedTenants.includes(subdomain)) {
         subdomain = 'default';
     }
@@ -35,6 +48,4 @@ export function middleware(request: NextRequest): NextResponse {
     });
 }
 
-export const config = {
-    matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
-};
+// Configuração já definida no topo do arquivo

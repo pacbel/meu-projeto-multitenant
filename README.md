@@ -11,11 +11,14 @@ Este é um sistema de demonstração que implementa uma arquitetura multitenant 
 - **API REST**: Endpoints para gerenciamento de usuários e posts
 - **TypeScript**: Código totalmente tipado para melhor manutenção
 - **Banco de Dados Isolados**: Cada tenant possui seu próprio banco de dados MySQL
+- **Redis para Gerenciamento de Tenants**: Lista de tenants permitidos armazenada no Redis com cache local
+- **Compatibilidade com Edge Functions**: Implementação compatível com Edge Functions do Next.js
 
 ## Requisitos
 
 - Node.js 18.x ou superior
 - MySQL 8.0 ou superior
+- Redis (via Upstash ou servidor local)
 - NPM ou Yarn
 
 ## Configuração do Ambiente
@@ -108,6 +111,8 @@ O sistema utiliza uma abordagem de banco de dados por tenant. Cada cliente possu
 
 O arquivo `src/middleware.ts` é responsável por detectar o subdomínio da requisição e definir o tenant correspondente nos headers da requisição. Este tenant é então utilizado para conectar ao banco de dados específico do cliente.
 
+O middleware consulta a lista de tenants permitidos no Redis, com um sistema de cache local para otimizar o desempenho e reduzir chamadas ao Redis. A implementação é compatível com Edge Functions do Next.js.
+
 ### Contexto de Autenticação
 
 O sistema implementa um contexto de autenticação simples (`src/context/AuthContext.tsx`) que gerencia o estado de login do usuário. A autenticação é baseada apenas em e-mail para fins de demonstração.
@@ -156,33 +161,45 @@ Você pode acessar diferentes tenants usando os seguintes URLs:
 /
 ├── src/
 │   ├── app/
+│   │   ├── admin/
+│   │   │   ├── layout.tsx         # Layout da área administrativa
+│   │   │   └── tenants/
+│   │   │       └── page.tsx         # Página de gerenciamento de tenants
 │   │   ├── api/
 │   │   │   ├── posts/
-│   │   │   │   └── route.ts     # API de posts
+│   │   │   │   └── route.ts         # API de posts
+│   │   │   ├── tenants/
+│   │   │   │   │── route.ts         # API de gerenciamento de tenants
+│   │   │   │   └── [tenant]/
+│   │   │   │       └── route.ts     # API para operações em tenant específico
 │   │   │   └── users/
-│   │   │       └── route.ts     # API de usuários
+│   │   │       └── route.ts         # API de usuários
 │   │   ├── dashboard/
-│   │   │   └── page.tsx         # Página do dashboard (protegida)
+│   │   │   └── page.tsx             # Página do dashboard (protegida)
 │   │   ├── login/
-│   │   │   └── page.tsx         # Página de login
-│   │   ├── layout.tsx           # Layout principal com AuthProvider
-│   │   └── page.tsx             # Página inicial
+│   │   │   └── page.tsx             # Página de login
+│   │   ├── layout.tsx               # Layout principal com AuthProvider
+│   │   └── page.tsx                 # Página inicial
 │   ├── components/
-│   │   └── ProtectedRoute.tsx   # Componente de proteção de rotas
+│   │   └── ProtectedRoute.tsx       # Componente de proteção de rotas
 │   ├── context/
-│   │   └── AuthContext.tsx      # Contexto de autenticação
-│   └── middleware.ts            # Middleware de resolução de tenant
+│   │   └── AuthContext.tsx          # Contexto de autenticação
+│   ├── lib/
+│   │   │── config.ts               # Configurações centralizadas
+│   │   │── redis.ts                # Cliente Redis para Edge Functions
+│   │   └── tenantService.ts        # Serviço de gerenciamento de tenants
+│   └── middleware.ts                # Middleware de resolução de tenant
 ├── lib/
-│   └── prisma.ts               # Cliente Prisma com suporte a multitenant
+│   └── prisma.ts                   # Cliente Prisma com suporte a multitenant
 ├── database/
-│   ├── dumps/                  # Dumps dos bancos de dados
+│   ├── dumps/                      # Dumps dos bancos de dados
 │   │   ├── default_db.sql
 │   │   ├── cliente1_db.sql
 │   │   └── cliente2_db.sql
-│   ├── setup_databases.sql     # Script para criar os bancos
-│   └── importar_bancos.bat     # Script para importar os dumps (Windows)
-├── next.config.ts             # Configuração do Next.js
-└── tsconfig.json              # Configuração do TypeScript
+│   ├── setup_databases.sql         # Script para criar os bancos
+│   └── importar_bancos.bat         # Script para importar os dumps (Windows)
+├── next.config.ts                 # Configuração do Next.js
+└── tsconfig.json                  # Configuração do TypeScript
 ```
 
 ## Desenvolvimento
@@ -190,8 +207,30 @@ Você pode acessar diferentes tenants usando os seguintes URLs:
 ### Adicionando um Novo Tenant
 
 1. Crie um novo banco de dados para o tenant
-2. Adicione o nome do tenant à lista de tenants permitidos no middleware
+2. Adicione o tenant à lista de tenants permitidos usando a API de administração ou diretamente no Redis
 3. Configure o host local para o novo tenant
+
+#### Usando a API de Administração
+
+Acesse a página de administração de tenants em [http://localhost:3000/admin/tenants](http://localhost:3000/admin/tenants) para adicionar ou remover tenants de forma visual.
+
+#### Usando a API REST
+
+```bash
+# Listar todos os tenants permitidos
+curl http://localhost:3000/api/tenants
+
+# Adicionar um novo tenant
+curl -X POST http://localhost:3000/api/tenants \
+  -H "Content-Type: application/json" \
+  -d '{"tenant": "novo_tenant_db"}'
+
+# Remover um tenant
+curl -X DELETE http://localhost:3000/api/tenants/tenant_para_remover
+
+# Verificar se um tenant está permitido
+curl http://localhost:3000/api/tenants/nome_do_tenant
+```
 
 ### Personalizando o Sistema
 
@@ -202,12 +241,36 @@ Para personalizar o sistema para uso em produção:
 3. Adicione validações e tratamento de erros mais robustos
 4. Implemente um sistema de permissões por usuário
 
+## Configuração do Redis
+
+O sistema utiliza o Redis para armazenar a lista de tenants permitidos. Para configurar o Redis:
+
+### 1. Crie uma conta no Upstash Redis
+
+1. Acesse [https://upstash.com/](https://upstash.com/) e crie uma conta
+2. Crie um novo banco de dados Redis
+3. Obtenha a URL e o token de acesso
+
+### 2. Configure as variáveis de ambiente
+
+Adicione as seguintes variáveis ao seu arquivo `.env.local`:
+
+```
+UPSTASH_REDIS_URL=sua_url_do_redis
+UPSTASH_REDIS_TOKEN=seu_token_do_redis
+```
+
+### 3. Personalize as configurações (opcional)
+
+Você pode personalizar as configurações do Redis e do cache no arquivo `src/lib/config.ts`.
+
 ## Considerações de Segurança
 
 - Este é um sistema de demonstração e não deve ser usado em produção sem modificações
 - A autenticação é simplificada e não segura para ambientes reais
 - As credenciais de banco de dados estão hardcoded no código
 - Não há validação de entrada nos formulários
+- Implemente autenticação na API de gerenciamento de tenants antes de usar em produção
 
 ## Suporte
 
